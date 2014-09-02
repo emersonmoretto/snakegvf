@@ -12,6 +12,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.text.DecimalFormat;
 import java.util.List;
 
 import javax.imageio.ImageIO;
@@ -272,30 +273,105 @@ public class SnakeGUI {
 			for (int x=1;x<(w-1);x++) {
 				fx[x][y] = (f[x+1][y]-f[x-1][y])/2;
 				fy[x][y] = (f[x][y+1]-f[x][y-1])/2;
+				u[x][y] = fx[x][y];
+				v[x][y] = fy[x][y];
 			}
 		}
+		
 	 
 		// iterative diffusion
 		for(int loop=0;loop<ITER;loop++) {
 	 
 			// compute laplacian of U and V
-			for (int y=1;y<(h-1);y++) {
-				for (int x=1;x<(w-1);x++) {
-					Lu[x][y] = -u[x][y] + 0.25*(u[x-1][y]+u[x+1][y]+u[x][y-1]+u[x][y+1]); 
-					Lv[x][y] = -v[x][y] + 0.25*(v[x-1][y]+v[x+1][y]+v[x][y-1]+v[x][y+1]);
+			for (int y=0 ; y < h ; y++) {
+				for (int x=0 ; x < w ; x++) {
+					
+					if(x > 0 && y > 0 && x < w-1 && y < h-1){
+						//Lu[x][y] = 0.25*(u[x-1][y]+u[x+1][y]+u[x][y-1]+u[x][y+1]) -u[x][y]; 
+						//Lv[x][y] = 0.25*(v[x-1][y]+v[x+1][y]+v[x][y-1]+v[x][y+1]) -v[x][y];
+						
+						Lu[x][y] = ((u[x-1][y]+u[x+1][y] + u[x][y-1] + u[x][y+1]) - 4 * u[x][y]) / 4; 
+						Lv[x][y] = ((v[x-1][y]+v[x+1][y] + v[x][y-1] + v[x][y+1]) - 4 * v[x][y]) / 4;
+						
+						//interior(i,j) = ((in(i-1,j) + in(i+1,j) + in(i,j-1) + in(i,j+1)) - 4*in(i,j) )/(h**2)
+							    
+								
+					}else{
+
+						if(x==0 && y ==0){
+							Lu[x][y] = -5 * u[x][y+1] + 4 * u[x][y+2] - u[x][y+3] + 2 * u[x][y] - 5 * u[x+1][y] + 4 * u[x+2][y] - u[x+3][y] + 2 * u[x][y] / 16;
+							Lv[x][y] = -5 * v[x][y+1] + 4 * v[x][y+2] - v[x][y+3] + 2 * v[x][y] - 5 * v[x+1][y] + 4 * v[x+2][y] - v[x+3][y] + 2 * v[x][y] / 16;
+							Lu[x][y] /= 4;
+							Lv[x][y] /= 4;
+						}
+					
+						else if(y == 0 && x < w-1){
+							Lu[x][y] = -5 * u[x][y+1] + 4 * u[x][y+2] - u[x][y+3] + 2 * u[x][y] + u[x+1][y] + u[x-1][y] - 2 * u[x][y] / 16;
+							Lv[x][y] = -5 * v[x][y+1] + 4 * v[x][y+2] - v[x][y+3] + 2 * v[x][y] + v[x+1][y] + v[x-1][y] - 2 * v[x][y] / 16;
+							Lu[x][y] /= 4;
+							Lv[x][y] /= 4;
+						}
+						
+						else if(x == 0  && y < h-1){
+							Lu[x][y] = -5 * u[x+1][y] + 4 * u[x+2][y] - u[x+3][y] + 2 * u[x][y] + u[x][y+1] + u[x][y-1] - 2 * u[x][y] / 16;
+							Lv[x][y] = -5 * v[x+1][y] + 4 * v[x+2][y] - v[x+3][y] + 2 * v[x][y] + v[x][y+1] + v[x][y-1] - 2 * v[x][y] / 16;
+							Lu[x][y] /= 4;
+							Lv[x][y] /= 4;
+						}
+						else if(x == w-1 && y > 0 && y < h-1){
+							Lu[x][y] = -5 * u[x-1][y] + 4 * u[x-2][y] - u[x-3][y] + 2 * u[x][y] + u[x][y+1] + u[x][y-1] - 2 * u[x][y] / 16;
+							Lv[x][y] = -5 * v[x-1][y] + 4 * v[x-2][y] - v[x-3][y] + 2 * v[x][y] + v[x][y+1] + v[x][y-1] - 2 * v[x][y] / 16;
+							Lu[x][y] /= 4;
+							Lv[x][y] /= 4;
+						}
+						else if(y == h-1 && x > 0  && x < w-1){
+							Lu[x][y] = -5 * u[x][y-1] + 4 * u[x][y-2] - u[x][y-3] + 2 * u[x][y] + u[x+1][y] + u[x-1][y] - 2 * u[x][y] / 16;
+							Lv[x][y] = -5 * v[x][y-1] + 4 * v[x][y-2] - v[x][y-3] + 2 * v[x][y] + v[x+1][y] + v[x-1][y] - 2 * v[x][y] / 16;
+							Lu[x][y] /= 4;
+							Lv[x][y] /= 4;
+						}
+						
+					}
+					
+					//Lu[x][y] /= 4;
+					//Lv[x][y] /= 4;
 				}
 			}
-	 
+			
+			debug(Lv);
+//			try {
+//				System.in.read();
+//			} catch (IOException e) {
+//			}
+			
+			
+			// Calculate BC for the corners
+			/*
+			double ul = (-5.0*Lu[1][2] + 4.0*in(1,3) - in(1,4) + 2.0*in(1,1) - 5.0*in(2,1) + 4.0*in(3,1) - in(4,1) + 2.0*in(1][1))/4;
+			double br = (-5.0*in(nr][nc-1) + 4.0*in(nr,nc-2) - in(nr,nc-3) + 2.0*in(nr,nc) - 5.0*in(nr-1,nc) + 4.0*in(nr-2,nc) - in(nr-3][nc) + 2.0*in(nr,nc))/4;
+			double bl = (-5.0*in(nr][2) + 4.0*in(nr,3) - in(nr,4) + 2.0*in(nr,1) - 5.0*in(nr-1,1) + 4.0*in(nr-2,1) - in(nr-3,1) + 2.0*in(nr][1))/4;
+			double ur = (-5.0*in(1][nc-1) + 4.0*in(1,nc-2) - in(1,nc-3) + 2.0*in(1,nc) - 5.0*in(2,nc) + 4.0*in(3,nc) - in(4,nc) + 2.0*in(1][nc))/4;
+			*/
+			
+			
+			/*
+			mag = sqrt(u.*u+v.*v);
+			px = u./(mag+1e-10); 
+			py = v./(mag+1e-10);
+			*/
 			// update U and V
 			for (int y=0;y<h;y++) {
 				for (int x=0;x<w;x++) {
 					double gnorm2 = fx[x][y]*fx[x][y] + fy[x][y]*fy[x][y];
 	 
-					u[x][y] += mu*4*Lu[x][y] - (u[x][y]-fx[x][y])*gnorm2;
-					v[x][y] += mu*4*Lv[x][y] - (v[x][y]-fy[x][y])*gnorm2;
+					u[x][y] += mu*4*Lu[x][y] - gnorm2 * (u[x][y]-fx[x][y]);
+					v[x][y] += mu*4*Lv[x][y] - gnorm2 * (v[x][y]-fy[x][y]);
+					
+					chanel_flow[x][y] = Math.sqrt(u[x][y]*u[x][y] + v[x][y]*v[x][y]);
 					
 					//chanel_flow[x][y] = (int) u[y][y] + (int) v[x][y] ;
-					chanel_flow[x][y] = Math.sqrt(u[x][y]*u[x][y] + v[x][y]*v[x][y]);
+					//chanel_flow[x][y] = u[x][y] + v[x][y] / ( Math.sqrt(u[x][y]*u[x][y] + v[x][y]*v[x][y]) + 1e-10 );
+					//chanel_flow[x][y] += v[x][y] / Math.sqrt(u[x][y]*u[x][y] + v[x][y]*v[x][y]) + 1e-10;
 				}
 			}
 			
@@ -308,18 +384,54 @@ public class SnakeGUI {
 		return new double[][][]{u,v};
 	}
 	
+	private void normalize2(double[][] mtx){
+			
+		/*
+		mag = sqrt(u.*u+v.*v);
+		px = u./(mag+1e-10); 
+		py = v./(mag+1e-10);
+		*/
+		
+	//101	4
+		
+	}
+	
+	private String debug(double[][] mtx) {
+	 
+		DecimalFormat df = new DecimalFormat("#.####");
+		StringBuilder sb = new StringBuilder();
+		for(int i=0 ; i < mtx.length ; i++){
+			for(int j=0 ; j < mtx[i].length ; j++){
+				System.out.print(df.format(mtx[i][j])+ "\t");
+				sb.append(df.format(mtx[i][j])+ "\t");
+				//mtx[i][j] = mtx[i][j] / Math.sqrt() + a;
+				//mtx[i][j] /= sum;
+			}
+			sb.append("\n");
+			System.out.println("");
+		}
+		return sb.toString();	
+			
+	}
+
 	// normalize energy matrix
-	private void normalize(double[][] array3x3) {
-		double sum=0;
-		for(int i=0;i<3;i++)
-			for(int j=0;j<3;j++)
-				sum+=Math.abs(array3x3[i][j]);
+	private void normalize(double[][] mtx) {
+		
+		double a = 1e-10;
+		double sum=0;		
+		for(int i=0 ; i < mtx.length ; i++)
+			for(int j=0 ; j < mtx[i].length ; j++)
+				sum += Math.abs(mtx[i][j]);
 	 
 		if (sum==0) return;
 	 
-		for(int i=0;i<3;i++)
-			for(int j=0;j<3;j++)
-				array3x3[i][j]/=sum;
+		for(int i=0 ; i < mtx.length ; i++)
+			for(int j=0 ; j < mtx[i].length ; j++){
+				
+				
+				//mtx[i][j] = mtx[i][j] / Math.sqrt() + a;
+				//mtx[i][j] /= sum;
+			}
 	}
 
 	
@@ -397,20 +509,23 @@ public class SnakeGUI {
 		
 		
 		
-		//normalize(f);		
+				
 		// THE GVF!!!
-		double[][][] gvfield = gvf(f, W, H, 25, 0.2);
+		double[][][] gvfield = gvf(f, W, H, 50, 0.2);
 		
-		normalize(chanel_flow);
-		
+		debug(chanel_flow);
+		/*
+		//normalize(f);
 		for (int y=0;y<H;y++) {
 			for (int x=0;x<W;x++) {
 				//chanel_flow[x][y] = Math.sqrt(u[x][y]*u[x][y] + v[x][y]*v[x][y]);
-				chanel_flow[x][y] = (255 - (chanel_flow[x][y]*1000) );
-				System.out.print(chanel_flow[x][y] + " ");
+				//chanel_flow[x][y] = (255 - (chanel_flow[x][y]*1000) );
+				System.out.print( ((double) chanel_flow[x][y] + " ") );
 			}		
 			System.out.println("");
-		}
+		}*/
+		
+		//normalize(chanel_flow);
 		
 		
 		// show flow + gradient

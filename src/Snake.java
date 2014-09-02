@@ -107,20 +107,29 @@ public class Snake {
 
 		// for each point of the previous snake
 		for(int i=0;i<snake.size();i++) {
+			
 			Point prev = snake.get((i+snake.size()-1)%snake.size());
 			Point cur  = snake.get(i);
 			Point next = snake.get((i+1)%snake.size());
 
+			
+			
+			
 			// compute all energies
 			for(int dy=-1;dy<=1;dy++) {
 				for(int dx=-1;dx<=1;dx++) {
+					
 					p.setLocation(cur.x+dx, cur.y+dy);
+					
 					e_uniformity[1+dx][1+dy] = f_uniformity(prev,next,p);
 					e_curvature[1+dx][1+dy]  = f_curvature(prev,p,next);
 					e_flow[1+dx][1+dy]       = f_gflow(cur,p);
 					e_inertia[1+dx][1+dy]    = f_inertia(cur,p);
 				}
 			}
+			
+			
+			
 
 			// normalize energies
 			normalize(e_uniformity);
