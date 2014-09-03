@@ -1,6 +1,3 @@
-import ij.ImagePlus;
-import ij.process.ImageProcessor;
-
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -34,6 +31,16 @@ import javax.swing.WindowConstants;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
+
+/**
+ * @author Emerson Moretto
+ *
+ * TODO
+ * - ver como faz com os 2 vetores GVF (soma?)
+ * - ver como o MIPAV faz pra "interpolar" com o ponto de controle - aqui anteriormente faz apenas a subtracao do valor do ponto atual e do anterior
+ * - GVF tá Ok!! 
+ *
+ */
 public class SnakeGUI {
 
 	// --- MODEL -----------------------------------------------------------
@@ -291,9 +298,7 @@ public class SnakeGUI {
 					if(x > 0 && y > 0 && x < w-1 && y < h-1){
 						Lu[x][y] = ((u[x-1][y]+u[x+1][y] + u[x][y-1] + u[x][y+1]) - 4 * u[x][y]) / 4; 
 						Lv[x][y] = ((v[x-1][y]+v[x+1][y] + v[x][y-1] + v[x][y+1]) - 4 * v[x][y]) / 4;
-								
 					}				
-					
 				}
 			}
 			
@@ -330,37 +335,27 @@ public class SnakeGUI {
 			//ul
 			int x = 0;
 			int y = 0;
-			debug(Lv,x,y);
 			Lu[x][y] = (-5 * u[x][y+1] + 4 * u[x][y+2] - u[x][y+3] + 2 * u[x][y] - 5 * u[x+1][y] + 4 * u[x+2][y] - u[x+3][y] + 2 * u[x][y]) / 4;
 			Lv[x][y] = (-5 * v[x][y+1] + 4 * v[x][y+2] - v[x][y+3] + 2 * v[x][y] - 5 * v[x+1][y] + 4 * v[x+2][y] - v[x+3][y] + 2 * v[x][y]) / 4;
-			debug(Lv,x,y);
 			
 			//br
 			x = w-1;
 			y = h-1;
-			debug(Lv,x,y);
 			Lu[x][y] = (-5 * u[x][y-1] + 4 * u[x][y-2] - u[x][y-3] + 2 * u[x][y] - 5 * u[x-1][y] + 4 * u[x-2][y] - u[x-3][y] + 2 * u[x][y]) / 4;
 			Lv[x][y] = (-5 * v[x][y-1] + 4 * v[x][y-2] - v[x][y-3] + 2 * v[x][y] - 5 * v[x-1][y] + 4 * v[x-2][y] - v[x-3][y] + 2 * v[x][y]) / 4;
-			debug(Lv,x,y);
 				
 			//bl
 			x = 0;
 			y = h-1;
-			debug(Lv,x,y);
 			Lu[x][y] = (-5 * u[x][y-1] + 4 * u[x][y-2] - u[x][y-3] + 2 * u[x][y] - 5 * u[x+1][y] + 4 * u[x+2][y] - u[x+3][y] + 2 * u[x][y]) / 4;
 			Lv[x][y] = (-5 * v[x][y-1] + 4 * v[x][y-2] - v[x][y-3] + 2 * v[x][y] - 5 * v[x+1][y] + 4 * v[x+2][y] - v[x+3][y] + 2 * v[x][y]) / 4;
-			debug(Lv,x,y);
 			
 			//ur
 			x = w-1;
 			y = 0;
-			debug(Lv,x,y);
 			Lu[x][y] = (-5 * u[x][y+1] + 4 * u[x][y+2] - u[x][y+3] + 2 * u[x][y] - 5 * u[x-1][y] + 4 * u[x-2][y] - u[x-3][y] + 2 * u[x][y]) / 4;
 			Lv[x][y] = (-5 * v[x][y+1] + 4 * v[x][y+2] - v[x][y+3] + 2 * v[x][y] - 5 * v[x-1][y] + 4 * v[x-2][y] - v[x-3][y] + 2 * v[x][y]) / 4;
-			debug(Lv,x,y);
 			
-			
-			debug(Lv,-1,-1);
 			
 			/*
 			GVF Norm
@@ -380,7 +375,7 @@ public class SnakeGUI {
 					
 					// GVF normalization
 					double mag = Math.sqrt(u[x][y]*u[x][y] + v[x][y]*v[x][y]);
-					chanel_flow[x][y] = u[x][y] / (mag + 1e-10);
+					chanel_flow[x][y] = 1 - (u[x][y] / (mag + 1e-10));
 				}
 			}
 		}
@@ -401,8 +396,6 @@ public class SnakeGUI {
 				else
 					System.out.print(df.format(mtx[i][j])+ "\t");
 				sb.append(df.format(mtx[i][j])+ "\t");
-				//mtx[i][j] = mtx[i][j] / Math.sqrt() + a;
-				//mtx[i][j] /= sum;
 			}
 			sb.append("\n");
 			System.out.println("");
@@ -411,6 +404,12 @@ public class SnakeGUI {
 		return sb.toString();	
 			
 	}
+	
+	double map(double x, double in_min, double in_max, double out_min, double out_max)
+	{
+	  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+	}
+	
 
 	private void computegflow() {
 		int W = image.getWidth();
@@ -485,9 +484,13 @@ public class SnakeGUI {
 			}
 		
 		// THE FUCKING GVF!!!
-		double[][][] gvfield = gvf(f, W, H, 50, 0.2);
+		double[][][] gvfield = gvf(f, W, H, 25, 0.2);
 		
-		debug(chanel_flow,99,99);
+		for (int y = 0; y < H; y++)
+			for (int x = 0; x < W; x++)
+				chanel_flow[x][y] = map(chanel_flow[x][y], 0, 1, 0, 255);
+				
+		debug(chanel_flow,-1,-1);
 		
 		
 		// show flow + gradient
