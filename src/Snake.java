@@ -1,4 +1,5 @@
 import java.awt.Point;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -19,6 +20,9 @@ public class Snake {
 	
 	// gradient flow (modulus)
 	private double[][] flow;
+	
+	private double[][] gflow_u;
+	private double[][] gflow_v;
 	
 	// 3x3 neighborhood used to compute energies
 	private double[][] e_uniformity = new double[3][3];
@@ -65,6 +69,15 @@ public class Snake {
 		this.height = height;
 	}
 
+	public Snake(int width, int height, int[][] gradient, double[][] gflow_u, double[][] gflow_v, Point... points) {
+		this.snake = new ArrayList<Point>(Arrays.asList(points));
+		this.gradient = gradient;
+		this.gflow_u = gflow_u;
+		this.gflow_v = gflow_v;
+		this.width = width;
+		this.height = height;
+	}
+	
 	/**
 	 * main loop
 	 * 
@@ -116,19 +129,38 @@ public class Snake {
 			
 			
 			// compute all energies
+			// para pontos 3x3
+			double a[][] = new double[3][3];
+			double b[][] = new double[3][3];
+			double c[][] = new double[3][3];
 			for(int dy=-1;dy<=1;dy++) {
 				for(int dx=-1;dx<=1;dx++) {
 					
-					p.setLocation(cur.x+dx, cur.y+dy);
+					p.setLocation(cur.x + dx, cur.y + dy);
+					
+					
+					if(cur.x == 6 && cur.y == 8)					
+					{
+						System.out.println(cur.x + ","+ cur.y);
+						a[dx+1][dy+1] = gflow_u[p.x][p.y];
+						b[dx+1][dy+1] = gflow_v[p.x][p.y];
+						c[dx+1][dy+1] = f_gflow(cur, p, dx, dy);
+						
+						SnakeGUI.debug(a,-1,-1);
+						SnakeGUI.debug(b,-1,-1);
+						SnakeGUI.debug(c,-1,-1);
+						try { System.in.read(); } catch (IOException e1) { e1.printStackTrace();}
+						
+					}
 					
 					e_uniformity[1+dx][1+dy] = f_uniformity(prev,next,p);
 					e_curvature[1+dx][1+dy]  = f_curvature(prev,p,next);
-					e_flow[1+dx][1+dy]       = f_gflow(cur,p);
+					e_flow[1+dx][1+dy]       = f_gflow(cur,p, dx, dy);
 					e_inertia[1+dx][1+dy]    = f_inertia(cur,p);
 				}
 			}
 			
-			
+		
 			
 
 			// normalize energies
@@ -140,6 +172,7 @@ public class Snake {
 			// find the point with the minimum sum of energies
 			double emin = Double.MAX_VALUE, e=0;
 			int x=0,y=0;
+			
 			for(int dy=-1;dy<=1;dy++) {
 				for(int dx=-1;dx<=1;dx++) {
 					e = 0;
@@ -237,13 +270,32 @@ public class Snake {
 		return cn;
 	}
 
-	private double f_gflow(Point cur, Point p) {
+	private double f_gflowOri(Point cur, Point p) {
 		// gradient flow
 		double dcur = this.flow[cur.x][cur.y];
 		double dp   = this.flow[p.x][p.y];
 		double d = dp-dcur;
 		return d;
 	}
+	
+	private double f_gflow(Point cur, Point p, int dx, int dy) {
+		// gradient vector flow
+		double dcur_u = this.gflow_u[cur.x][cur.y];
+		double dcur_v = this.gflow_v[cur.x][cur.y];
+		
+		//double dp_u = this.gflow_u[p.x][p.y];
+		//double dp_v = this.gflow_v[p.x][p.y];
+		
+		
+		double dp_u = this.gflow_u[p.x][p.y] *  dx * -1;
+		double dp_v = this.gflow_v[p.x][p.y] *  dy * -1;
+		
+	//	System.out.println( this.gflow_u[p.x][p.y]+dx + ", " + this.gflow_v[p.x][p.y]+dy);
+		
+		double d = dp_u + dp_v;// - (this.gflow_u[cur.x][cur.y] + this.gflow_v[cur.x][cur.y]);
+		return d;
+	}
+
 
 	private double f_inertia(Point cur, Point p) {
 		double d = distance2D(cur, p);

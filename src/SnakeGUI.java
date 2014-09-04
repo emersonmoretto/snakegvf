@@ -38,7 +38,7 @@ import javax.swing.event.ChangeListener;
  * TODO
  * - ver como faz com os 2 vetores GVF (soma?)
  * - ver como o MIPAV faz pra "interpolar" com o ponto de controle - aqui anteriormente faz apenas a subtracao do valor do ponto atual e do anterior
- * - GVF tá Ok!! 
+ * - GVF t�� Ok!! 
  *
  */
 public class SnakeGUI {
@@ -54,6 +54,9 @@ public class SnakeGUI {
 	private BufferedImage imageanimation = null;
 	private int[][] chanel_gradient = null;
 	private double[][] chanel_flow = null;
+	
+	private double[][] gvf_v = null;
+	private double[][] gvf_u = null;
 
 	private int[][] intensite_flux = null;
 	private int[][] r = null;
@@ -376,6 +379,10 @@ public class SnakeGUI {
 					// GVF normalization
 					double mag = Math.sqrt(u[x][y]*u[x][y] + v[x][y]*v[x][y]);
 					chanel_flow[x][y] = 1 - (u[x][y] / (mag + 1e-10));
+					
+					gvf_u[x][y] =  -1 * (u[x][y] / (mag + 1e-10));
+					gvf_v[x][y] =  -1 * (v[x][y] / (mag + 1e-10));
+					
 				}
 			}
 		}
@@ -385,20 +392,22 @@ public class SnakeGUI {
 		return new double[][][]{u,v};
 	}
 	
-	private String debug(double[][] mtx, int x, int y) {
+	public static  String debug(double[][] mtx, int x, int y) {
 	 
 		DecimalFormat df = new DecimalFormat("#.####");
 		StringBuilder sb = new StringBuilder();
 		for(int i=0 ; i < mtx.length ; i++){
 			for(int j=0 ; j < mtx[i].length ; j++){
+				
 				if(i == x && y == j)
-					System.out.print("["+df.format(mtx[i][j])+ "]\t");
+					System.out.print("["+df.format(mtx[i][j]).replaceAll(",",".")+ "]\t");
 				else
-					System.out.print(df.format(mtx[i][j])+ "\t");
-				sb.append(df.format(mtx[i][j])+ "\t");
+					System.out.print(df.format(mtx[i][j]).replaceAll(",",".")+ "\t");
+				
+				sb.append(df.format(mtx[i][j]).replaceAll(",",".")+ "\t");
 			}
-			sb.append("\n");
-			System.out.println("");
+			sb.append(",\n");
+			System.out.println(",");
 		}
 		System.out.println("");
 		return sb.toString();	
@@ -484,13 +493,21 @@ public class SnakeGUI {
 			}
 		
 		// THE FUCKING GVF!!!
-		double[][][] gvfield = gvf(f, W, H, 25, 0.2);
+		gvf_v = new double[W][H];
+		gvf_u = new double[W][H];
+		double[][][] gvfield = gvf(f, W, H, slideThreshold.getValue(), 0.2);
+		
+		//debug(gvf_v,-1,-1);
+		
+		
+		
+		//debug(gvf_u,-1,-1);
 		
 		for (int y = 0; y < H; y++)
 			for (int x = 0; x < W; x++)
 				chanel_flow[x][y] = map(chanel_flow[x][y], 0, 1, 0, 255);
 				
-		debug(chanel_flow,-1,-1);
+		
 		
 		
 		// show flow + gradient
@@ -499,7 +516,7 @@ public class SnakeGUI {
 		
 		for (int y = 0; y < H; y++) {
 			for (int x = 0; x < W; x++) {
-				int vflow = (int) chanel_flow[x][y];
+				int vflow = (int) ((chanel_flow[x][y]/2)+0.5);
 				int vgrad = binarygradient[x][y]?255:0;
 
 				if (vgrad > 0) {
@@ -543,7 +560,7 @@ public class SnakeGUI {
 		}
 
 		// create snake instance
-		snakeinstance = new Snake(W, H, chanel_gradient, chanel_flow, circle);
+		snakeinstance = new Snake(W, H, chanel_gradient, gvf_u, gvf_v, circle);
 
 		// snake base parameters
 		snakeinstance.alpha = Double.parseDouble(txtAlpha.getText());
