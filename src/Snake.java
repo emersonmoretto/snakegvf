@@ -1,5 +1,4 @@
 import java.awt.Point;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -24,11 +23,12 @@ public class Snake {
 	private double[][] gflow_u;
 	private double[][] gflow_v;
 	
+	private static int wSize = 2;
 	// 3x3 neighborhood used to compute energies
-	private double[][] e_uniformity = new double[3][3];
-	private double[][] e_curvature  = new double[3][3];
-	private double[][] e_flow       = new double[3][3];
-	private double[][] e_inertia    = new double[3][3];
+	private double[][] e_uniformity = new double[wSize+1][wSize+1];
+	private double[][] e_curvature  = new double[wSize+1][wSize+1];
+	private double[][] e_flow       = new double[wSize+1][wSize+1];
+	private double[][] e_inertia    = new double[wSize+1][wSize+1];
 
 	// auto add/remove points to the snake
 	// according to distance between points
@@ -51,7 +51,6 @@ public class Snake {
 	// beta  = coefficient for curvature  (high => force smooth curvature)
 	// gamma  = coefficient for flow      (high => force gradient attraction)
 	// delta  = coefficient for intertia  (high => get stuck to gradient)
-	
 	
 	/**
 	 * Constructor
@@ -95,6 +94,12 @@ public class Snake {
 			loop++;
 			
 			if (SHOWANIMATION && SNAKEGUI!=null) SNAKEGUI.display();
+			
+			try {
+				Thread.sleep(5);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
 		}
 
 		// rebuild using spline interpolation
@@ -125,21 +130,18 @@ public class Snake {
 			Point cur  = snake.get(i);
 			Point next = snake.get((i+1)%snake.size());
 
-			
-			
-			
 			// compute all energies
 			// para pontos 3x3
 			double a[][] = new double[3][3];
 			double b[][] = new double[3][3];
 			double c[][] = new double[3][3];
-			for(int dy=-1;dy<=1;dy++) {
-				for(int dx=-1;dx<=1;dx++) {
+			
+			for(int dy = (wSize/2)*-1 ;dy <= (wSize/2); dy++) {
+				for(int dx = (wSize/2)*-1;dx <= (wSize/2); dx++) {
 					
 					p.setLocation(cur.x + dx, cur.y + dy);
 					
-					
-					if(cur.x == 6 && cur.y == 8)					
+					/*if(cur.x == 6 && cur.y == 8)					
 					{
 						System.out.println(cur.x + ","+ cur.y);
 						a[dx+1][dy+1] = gflow_u[p.x][p.y];
@@ -150,17 +152,17 @@ public class Snake {
 						SnakeGUI.debug(b,-1,-1);
 						SnakeGUI.debug(c,-1,-1);
 						try { System.in.read(); } catch (IOException e1) { e1.printStackTrace();}
-						
-					}
+					}*/
 					
-					e_uniformity[1+dx][1+dy] = f_uniformity(prev,next,p);
-					e_curvature[1+dx][1+dy]  = f_curvature(prev,p,next);
-					e_flow[1+dx][1+dy]       = f_gflow(cur,p, dx, dy);
-					e_inertia[1+dx][1+dy]    = f_inertia(cur,p);
+					//e_uniformity[1+dx][1+dy] = f_uniformity(prev,next,p);
+					e_curvature[(wSize/2)+dx][(wSize/2)+dy]  = f_curvature(prev,p,next);
+					
+					e_flow[(wSize/2)+dx][(wSize/2)+dy]       = f_gvflow(cur,p, dx, dy); // gvf
+					//e_flow[1+dx][1+dy]       = f_gflowOri(cur,p); // snake ori
+					
+					//e_inertia[1+dx][1+dy]    = f_inertia(cur,p);
 				}
 			}
-			
-		
 			
 
 			// normalize energies
@@ -173,13 +175,15 @@ public class Snake {
 			double emin = Double.MAX_VALUE, e=0;
 			int x=0,y=0;
 			
-			for(int dy=-1;dy<=1;dy++) {
-				for(int dx=-1;dx<=1;dx++) {
+			for(int dy = (wSize/2)*-1 ;dy <= (wSize/2); dy++) {
+				for(int dx = (wSize/2)*-1;dx <= (wSize/2); dx++) {
 					e = 0;
-					e+= alpha * e_uniformity[1+dx][1+dy]; // internal energy
-					e+= beta  * e_curvature[1+dx][1+dy];  // internal energy
-					e+= gamma * e_flow[1+dx][1+dy];       // external energy
-					e+= delta * e_inertia[1+dx][1+dy];    // external energy
+					//e+= alpha * e_uniformity[1+dx][1+dy]; // internal energy
+					
+					e+= beta  * e_curvature[(wSize/2)+dx][(wSize/2)+dy];  // internal energy
+					e+= gamma * e_flow[(wSize/2)+dx][(wSize/2)+dy];       // external energy
+					
+					//e+= delta * e_inertia[1+dx][1+dy];    // external energy
 					
 					if (e<emin) { emin=e; x=cur.x+dx; y=cur.y+dy; }
 				}
@@ -278,21 +282,19 @@ public class Snake {
 		return d;
 	}
 	
-	private double f_gflow(Point cur, Point p, int dx, int dy) {
+	private double f_gvflow(Point cur, Point p, int dx, int dy) {
+
+		if(p.x >= width || p.x <= 0)
+			return 999;
+		
+		if(p.y >= height || p.y <= 0)
+			return 999;
+		
 		// gradient vector flow
-		double dcur_u = this.gflow_u[cur.x][cur.y];
-		double dcur_v = this.gflow_v[cur.x][cur.y];
-		
-		//double dp_u = this.gflow_u[p.x][p.y];
-		//double dp_v = this.gflow_v[p.x][p.y];
-		
-		
 		double dp_u = this.gflow_u[p.x][p.y] *  dx * -1;
 		double dp_v = this.gflow_v[p.x][p.y] *  dy * -1;
 		
-	//	System.out.println( this.gflow_u[p.x][p.y]+dx + ", " + this.gflow_v[p.x][p.y]+dy);
-		
-		double d = dp_u + dp_v;// - (this.gflow_u[cur.x][cur.y] + this.gflow_v[cur.x][cur.y]);
+		double d = dp_u + dp_v;
 		return d;
 	}
 
@@ -353,7 +355,6 @@ public class Snake {
 		}
 		this.snake = newsnake;
 	}
-
 
 	private void removeOverlappingPoints(int minlen) {
 		// for each point of the snake

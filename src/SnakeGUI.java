@@ -3,6 +3,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.FileDialog;
 import java.awt.Graphics2D;
+import java.awt.LayoutManager;
 import java.awt.Point;
 import java.awt.color.ColorSpace;
 import java.awt.event.ActionEvent;
@@ -25,7 +26,9 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
 import javax.swing.JSlider;
+import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.WindowConstants;
 import javax.swing.event.ChangeEvent;
@@ -34,11 +37,6 @@ import javax.swing.event.ChangeListener;
 
 /**
  * @author Emerson Moretto
- *
- * TODO
- * - ver como faz com os 2 vetores GVF (soma?)
- * - ver como o MIPAV faz pra "interpolar" com o ponto de controle - aqui anteriormente faz apenas a subtracao do valor do ponto atual e do anterior
- * - GVF t�� Ok!! 
  *
  */
 public class SnakeGUI {
@@ -52,28 +50,24 @@ public class SnakeGUI {
 
 	private BufferedImage image = null;
 	private BufferedImage imageanimation = null;
-	private int[][] chanel_gradient = null;
-	private double[][] chanel_flow = null;
+	private int[][] channel_gradient = null;
+	private double[][] channel_flow = null;
 	
 	private double[][] gvf_v = null;
 	private double[][] gvf_u = null;
 
-	private int[][] intensite_flux = null;
-	private int[][] r = null;
 	// --- SWING COMPONENTS ------------------------------------------------
 
 	private JLabel label0 = new JLabel("Gradient Vector Flow");
 	private JLabel label1 = new JLabel("Snake");
-	private JCheckBox cbShowAnim = new JCheckBox("Show animation");
-	private JTextField txtMaxiter = new JTextField("500", 3);
+	private JSlider slideMaxiter = new JSlider(50, 800, 400);
 
-	private JSlider slideThreshold = new JSlider(1, 100, 25);
+	private JSlider slideThreshold = new JSlider(1, 200, 75);
 	private JTextField txtAlpha = new JTextField("1.0", 3);
 	private JTextField txtBeta = new JTextField("0.2", 3);
 	private JTextField txtGamma = new JTextField("1.0", 3);
 	private JTextField txtDelta = new JTextField("1.0", 3);
 
-	private JCheckBox cbAutoadapt = new JCheckBox("Auto-Adapt");
 	private JTextField txtStep = new JTextField("10", 3);
 	private JTextField txtMinlen = new JTextField("2", 3);
 	private JTextField txtMaxlen = new JTextField("3", 3);
@@ -94,20 +88,21 @@ public class SnakeGUI {
 		panneau.add(label1);
 		final JScrollPane scrollPane = new JScrollPane(panneau);
 
-		JButton buttonLoad = new JButton("Load");
+		JButton buttonLoad = new JButton("Load Image");
 		JButton buttonRun = new JButton("Run");
 
 		final JPanel buttonPanel = new JPanel();
 		buttonPanel.add(buttonLoad);
 		buttonPanel.add(buttonRun);
-		buttonPanel.add(cbShowAnim);
-		buttonPanel.add(new JLabel("Max. Iteration:"));
-		buttonPanel.add(txtMaxiter);
-		cbShowAnim.setSelected(true);
+		//buttonPanel.add(cbShowAnim);
+		buttonPanel.add(new JLabel("Iterations (100-800):"));
+		buttonPanel.add(slideMaxiter);
+		buttonPanel.add(new JLabel("GVF iteractions (0-200):"));
+		buttonPanel.add(slideThreshold);
+		//cbShowAnim.setSelected(true);
 
 		final JPanel coefPanel = new JPanel();
-		coefPanel.add(new JLabel("gradient threshold:"));
-		coefPanel.add(slideThreshold);
+		
 		coefPanel.add(new JLabel("alpha:"));
 		coefPanel.add(txtAlpha);
 		coefPanel.add(new JLabel("beta:"));
@@ -118,14 +113,15 @@ public class SnakeGUI {
 		coefPanel.add(txtDelta);
 
 		final JPanel adpatPanel = new JPanel();
-		adpatPanel.add(cbAutoadapt);
-		adpatPanel.add(new JLabel("every X iterations:"));
-		adpatPanel.add(txtStep);
-		adpatPanel.add(new JLabel("min segment length:"));
-		adpatPanel.add(txtMinlen);
-		adpatPanel.add(new JLabel("max segment length:"));
-		adpatPanel.add(txtMaxlen);
-		cbAutoadapt.setSelected(true);
+		//adpatPanel.add(cbAutoadapt);
+		//coefPanel.add(new JLabel("adapt iterations:"));
+		//coefPanel.add(txtStep);
+		coefPanel.add(new JSeparator(0));
+		coefPanel.add(new JLabel("min seg:"));
+		coefPanel.add(txtMinlen);
+		coefPanel.add(new JLabel("max seg:"));
+		coefPanel.add(txtMaxlen);
+		//cbAutoadapt.setSelected(true);
 
 		final JPanel mainPanel = new JPanel();
 		mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
@@ -136,7 +132,7 @@ public class SnakeGUI {
 		// frame
 		frame.getContentPane().add(scrollPane, BorderLayout.CENTER);
 		frame.getContentPane().add(mainPanel, BorderLayout.PAGE_END);
-		frame.setSize(700, 500);
+		frame.setSize(900, 600);
 		frame.setVisible(true);
 
 		// ActionListener "LOAD"
@@ -228,7 +224,7 @@ public class SnakeGUI {
         gc.drawImage(image,0,0,null);
 
 		// draw snake lines
-		gc.setColor( Color.RED );
+		gc.setColor( Color.BLUE );
 		gc.setStroke(new BasicStroke(2.0f));
 		List<Point> snakepoints = snakeinstance.snake;
 		for (int i = 0; i < snakepoints.size(); i++) {
@@ -239,7 +235,7 @@ public class SnakeGUI {
 		}
 
 		// draw snake points
-		gc.setColor( Color.ORANGE );
+		gc.setColor( Color.GREEN );
 		for (int i = 0; i < snakepoints.size(); i++) {
 			Point p = snakepoints.get(i);
 			gc.fillRect(p.x-2, p.y-2, 5, 5);
@@ -305,91 +301,108 @@ public class SnakeGUI {
 				}
 			}
 			
-			for (int x=0 ; x < w ; x++) {
-				for (int y=0 ; y < h ; y++) {
-
-					if(x > 0 && y > 0 && x < w-1 && y < h-1){
-					}else{
-						if(x==0 && y ==0){
-						}
-						else if(y == 0 && x < w-1){
-							Lu[x][y] = (-5 * u[x][y+1] + 4 * u[x][y+2] - u[x][y+3] + 2 * u[x][y] + u[x+1][y] + u[x-1][y] - 2 * u[x][y]) / 4;
-							Lv[x][y] = (-5 * v[x][y+1] + 4 * v[x][y+2] - v[x][y+3] + 2 * v[x][y] + v[x+1][y] + v[x-1][y] - 2 * v[x][y]) / 4;
-						}
-						
-						else if(x == 0  && y < h-1){
-							Lu[x][y] = (-5 * u[x+1][y] + 4 * u[x+2][y] - u[x+3][y] + 2 * u[x][y] + u[x][y+1] + u[x][y-1] - 2 * u[x][y]) / 4;
-							Lv[x][y] = (-5 * v[x+1][y] + 4 * v[x+2][y] - v[x+3][y] + 2 * v[x][y] + v[x][y+1] + v[x][y-1] - 2 * v[x][y]) / 4;
-						}
-						
-						else if(y == h-1 && x > 0 && x < w-1){
-							Lu[x][y] = (-5 * u[x][y-1] + 4 * u[x][y-2] - u[x][y-3] + 2 * u[x][y] + u[x+1][y] + u[x-1][y] - 2 * u[x][y]) / 4;
-							Lv[x][y] = (-5 * v[x][y-1] + 4 * v[x][y-2] - v[x][y-3] + 2 * v[x][y] + v[x+1][y] + v[x-1][y] - 2 * v[x][y]) / 4;
-						}
-						
-						else if(x == w-1 && y > 0 && y < h-1){
-							Lu[x][y] = (-5 * u[x-1][y] + 4 * u[x-2][y] - u[x-3][y] + 2 * u[x][y] + u[x][y+1] + u[x][y-1] - 2 * u[x][y]) / 4;
-							Lv[x][y] = (-5 * v[x-1][y] + 4 * v[x-2][y] - v[x-3][y] + 2 * v[x][y] + v[x][y+1] + v[x][y-1] - 2 * v[x][y]) / 4;
-						}
-					}
-				}
-			}
 			
-			//ul
-			int x = 0;
-			int y = 0;
-			Lu[x][y] = (-5 * u[x][y+1] + 4 * u[x][y+2] - u[x][y+3] + 2 * u[x][y] - 5 * u[x+1][y] + 4 * u[x+2][y] - u[x+3][y] + 2 * u[x][y]) / 4;
-			Lv[x][y] = (-5 * v[x][y+1] + 4 * v[x][y+2] - v[x][y+3] + 2 * v[x][y] - 5 * v[x+1][y] + 4 * v[x+2][y] - v[x+3][y] + 2 * v[x][y]) / 4;
+			// Laplace
+			del2(w, h, u, v, Lu, Lv);
 			
-			//br
-			x = w-1;
-			y = h-1;
-			Lu[x][y] = (-5 * u[x][y-1] + 4 * u[x][y-2] - u[x][y-3] + 2 * u[x][y] - 5 * u[x-1][y] + 4 * u[x-2][y] - u[x-3][y] + 2 * u[x][y]) / 4;
-			Lv[x][y] = (-5 * v[x][y-1] + 4 * v[x][y-2] - v[x][y-3] + 2 * v[x][y] - 5 * v[x-1][y] + 4 * v[x-2][y] - v[x-3][y] + 2 * v[x][y]) / 4;
-				
-			//bl
-			x = 0;
-			y = h-1;
-			Lu[x][y] = (-5 * u[x][y-1] + 4 * u[x][y-2] - u[x][y-3] + 2 * u[x][y] - 5 * u[x+1][y] + 4 * u[x+2][y] - u[x+3][y] + 2 * u[x][y]) / 4;
-			Lv[x][y] = (-5 * v[x][y-1] + 4 * v[x][y-2] - v[x][y-3] + 2 * v[x][y] - 5 * v[x+1][y] + 4 * v[x+2][y] - v[x+3][y] + 2 * v[x][y]) / 4;
-			
-			//ur
-			x = w-1;
-			y = 0;
-			Lu[x][y] = (-5 * u[x][y+1] + 4 * u[x][y+2] - u[x][y+3] + 2 * u[x][y] - 5 * u[x-1][y] + 4 * u[x-2][y] - u[x-3][y] + 2 * u[x][y]) / 4;
-			Lv[x][y] = (-5 * v[x][y+1] + 4 * v[x][y+2] - v[x][y+3] + 2 * v[x][y] - 5 * v[x-1][y] + 4 * v[x-2][y] - v[x-3][y] + 2 * v[x][y]) / 4;
-			
-			
-			/*
-			GVF Norm
-			mag = sqrt(u.*u+v.*v);
-			px = u./(mag+1e-10); 
-			py = v./(mag+1e-10);
-			*/
+					
 			
 			// update U and V
-			for ( y=0;y<h;y++) {
-				for ( x=0;x<w;x++) {
+			for (int y=0;y<h;y++) {
+				for (int x=0;x<w;x++) {
 					
 					double gnorm2 = fx[x][y]*fx[x][y] + fy[x][y]*fy[x][y];
 	 
 					u[x][y] += mu*4*Lu[x][y] - gnorm2 * (u[x][y]-fx[x][y]);
 					v[x][y] += mu*4*Lv[x][y] - gnorm2 * (v[x][y]-fy[x][y]);
 					
-					// GVF normalization
+					// GVF chanel flow
 					double mag = Math.sqrt(u[x][y]*u[x][y] + v[x][y]*v[x][y]);
-					chanel_flow[x][y] = 1 - (u[x][y] / (mag + 1e-10));
+					channel_flow[x][y] = 1 - (u[x][y] / (mag + 1e-10));
 					
+					/*
+					GVF Norm
+					mag = sqrt(u.*u+v.*v);
+					px = u./(mag+1e-10); 
+					py = v./(mag+1e-10);
+					*/
 					gvf_u[x][y] =  -1 * (u[x][y] / (mag + 1e-10));
 					gvf_v[x][y] =  -1 * (v[x][y] / (mag + 1e-10));
 					
 				}
 			}
 		}
-		
 	 
 		// return U and V arrays
 		return new double[][][]{u,v};
+	}
+
+	/**
+	 * Discrete Laplacian Operator - same del2 function from Matlab 
+	 *
+	 * @param w weight
+	 * @param h height
+	 * @param u gradient x
+	 * @param v gradient y
+	 * @param Lu Laplace over u
+	 * @param Lv Laplace over v
+	 */
+	private void del2(int w, int h, double[][] u, double[][] v, double[][] Lu, double[][] Lv) {
+		
+		
+		for (int x=0 ; x < w ; x++) {
+			for (int y=0 ; y < h ; y++) {
+
+				if(x > 0 && y > 0 && x < w-1 && y < h-1){
+				}else{
+					if(x==0 && y ==0){
+					}
+					else if(y == 0 && x < w-1){
+						Lu[x][y] = (-5 * u[x][y+1] + 4 * u[x][y+2] - u[x][y+3] + 2 * u[x][y] + u[x+1][y] + u[x-1][y] - 2 * u[x][y]) / 4;
+						Lv[x][y] = (-5 * v[x][y+1] + 4 * v[x][y+2] - v[x][y+3] + 2 * v[x][y] + v[x+1][y] + v[x-1][y] - 2 * v[x][y]) / 4;
+					}
+					
+					else if(x == 0  && y < h-1){
+						Lu[x][y] = (-5 * u[x+1][y] + 4 * u[x+2][y] - u[x+3][y] + 2 * u[x][y] + u[x][y+1] + u[x][y-1] - 2 * u[x][y]) / 4;
+						Lv[x][y] = (-5 * v[x+1][y] + 4 * v[x+2][y] - v[x+3][y] + 2 * v[x][y] + v[x][y+1] + v[x][y-1] - 2 * v[x][y]) / 4;
+					}
+					
+					else if(y == h-1 && x > 0 && x < w-1){
+						Lu[x][y] = (-5 * u[x][y-1] + 4 * u[x][y-2] - u[x][y-3] + 2 * u[x][y] + u[x+1][y] + u[x-1][y] - 2 * u[x][y]) / 4;
+						Lv[x][y] = (-5 * v[x][y-1] + 4 * v[x][y-2] - v[x][y-3] + 2 * v[x][y] + v[x+1][y] + v[x-1][y] - 2 * v[x][y]) / 4;
+					}
+					
+					else if(x == w-1 && y > 0 && y < h-1){
+						Lu[x][y] = (-5 * u[x-1][y] + 4 * u[x-2][y] - u[x-3][y] + 2 * u[x][y] + u[x][y+1] + u[x][y-1] - 2 * u[x][y]) / 4;
+						Lv[x][y] = (-5 * v[x-1][y] + 4 * v[x-2][y] - v[x-3][y] + 2 * v[x][y] + v[x][y+1] + v[x][y-1] - 2 * v[x][y]) / 4;
+					}
+				}
+			}
+		}
+		
+		//ul
+		int x = 0;
+		int y = 0;
+		Lu[x][y] = (-5 * u[x][y+1] + 4 * u[x][y+2] - u[x][y+3] + 2 * u[x][y] - 5 * u[x+1][y] + 4 * u[x+2][y] - u[x+3][y] + 2 * u[x][y]) / 4;
+		Lv[x][y] = (-5 * v[x][y+1] + 4 * v[x][y+2] - v[x][y+3] + 2 * v[x][y] - 5 * v[x+1][y] + 4 * v[x+2][y] - v[x+3][y] + 2 * v[x][y]) / 4;
+		
+		//br
+		x = w-1;
+		y = h-1;
+		Lu[x][y] = (-5 * u[x][y-1] + 4 * u[x][y-2] - u[x][y-3] + 2 * u[x][y] - 5 * u[x-1][y] + 4 * u[x-2][y] - u[x-3][y] + 2 * u[x][y]) / 4;
+		Lv[x][y] = (-5 * v[x][y-1] + 4 * v[x][y-2] - v[x][y-3] + 2 * v[x][y] - 5 * v[x-1][y] + 4 * v[x-2][y] - v[x-3][y] + 2 * v[x][y]) / 4;
+			
+		//bl
+		x = 0;
+		y = h-1;
+		Lu[x][y] = (-5 * u[x][y-1] + 4 * u[x][y-2] - u[x][y-3] + 2 * u[x][y] - 5 * u[x+1][y] + 4 * u[x+2][y] - u[x+3][y] + 2 * u[x][y]) / 4;
+		Lv[x][y] = (-5 * v[x][y-1] + 4 * v[x][y-2] - v[x][y-3] + 2 * v[x][y] - 5 * v[x+1][y] + 4 * v[x+2][y] - v[x+3][y] + 2 * v[x][y]) / 4;
+		
+		//ur
+		x = w-1;
+		y = 0;
+		Lu[x][y] = (-5 * u[x][y+1] + 4 * u[x][y+2] - u[x][y+3] + 2 * u[x][y] - 5 * u[x-1][y] + 4 * u[x-2][y] - u[x-3][y] + 2 * u[x][y]) / 4;
+		Lv[x][y] = (-5 * v[x][y+1] + 4 * v[x][y+2] - v[x][y+3] + 2 * v[x][y] - 5 * v[x-1][y] + 4 * v[x-2][y] - v[x-3][y] + 2 * v[x][y]) / 4;
 	}
 	
 	public static  String debug(double[][] mtx, int x, int y) {
@@ -414,19 +427,16 @@ public class SnakeGUI {
 			
 	}
 	
-	double map(double x, double in_min, double in_max, double out_min, double out_max)
-	{
-	  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-	}
 	
+	double map(double x, double in_min, double in_max, double out_min, double out_max){
+	  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+	}	
 
 	private void computegflow() {
+		
 		int W = image.getWidth();
 		int H = image.getHeight();
 
-		this.intensite_flux = new int[W][H];
-		this.r = new int[W][H]; 
-		
 		int THRESHOLD = slideThreshold.getValue();
 
 		// GrayLevelScale (Luminance)
@@ -440,39 +450,6 @@ public class SnakeGUI {
 				clum[x][y] = (int)(0.299*r + 0.587*g + 0.114*b);  
 			}
 				
-		// Gradient (sobel)
-		this.chanel_gradient = new int[W][H]; 
-		int maxgradient=0;
-		for (int y = 0; y < H-2; y++)
-			for (int x = 0; x < W-2; x++) {
-				int p00 = clum[x+0][y+0]; int p10 = clum[x+1][y+0]; int p20 = clum[x+2][y+0];
-				int p01 = clum[x+0][y+1]; /*-------------------- */ int p21 = clum[x+2][y+1];
-				int p02 = clum[x+0][y+2]; int p12 = clum[x+1][y+2]; int p22 = clum[x+2][y+2];
-				int sx = (p20+2*p21+p22)-(p00+2*p01+p02);
-				int sy = (p02+2*p12+p22)-(p00+2*p10+p10);
-				int snorm = (int)Math.sqrt(sx*sx+sy*sy);
-				chanel_gradient[x+1][y+1]=snorm;
-				maxgradient=Math.max(maxgradient, snorm);
-			}
-
-		// thresholding
-		boolean[][] binarygradient = new boolean[W][H];
-		for (int y = 0; y < H; y++)
-			for (int x = 0; x < W; x++)
-				if (chanel_gradient[x][y] > THRESHOLD*maxgradient/100) {
-					binarygradient[x][y]=true;
-				} else {
-					chanel_gradient[x][y]=0;
-				}
-		// distance map to binarized gradient
-		chanel_flow = new double[W][H];
-		
-		double[][] cdist = new ChamferDistance(ChamferDistance.chamfer5).compute(binarygradient, W,H);
-		for (int y = 0; y < H; y++)
-			for (int x = 0; x < W; x++)
-				chanel_flow[x][y]=(int)(5*cdist[x][y]);
-		
-		
 		/**
 		 * to gray and normalize
 		 */
@@ -492,22 +469,59 @@ public class SnakeGUI {
 			     f[i][j] = grayLevel / 255;
 			}
 		
+		// Gradient (sobel)
+		this.channel_gradient = new int[W][H]; 
+		int maxgradient=0;
+		for (int y = 0; y < H-2; y++)
+			for (int x = 0; x < W-2; x++) {
+				int p00 = clum[x+0][y+0]; int p10 = clum[x+1][y+0]; int p20 = clum[x+2][y+0];
+				int p01 = clum[x+0][y+1]; /*-------------------- */ int p21 = clum[x+2][y+1];
+				int p02 = clum[x+0][y+2]; int p12 = clum[x+1][y+2]; int p22 = clum[x+2][y+2];
+				int sx = (p20+2*p21+p22)-(p00+2*p01+p02);
+				int sy = (p02+2*p12+p22)-(p00+2*p10+p10);
+				int snorm = (int)Math.sqrt(sx*sx+sy*sy);
+				channel_gradient[x+1][y+1]=snorm;
+				maxgradient=Math.max(maxgradient, snorm);
+			}
+
+		// distance map to binarized gradient
+		channel_flow = new double[W][H];
+			
+		
+	
+		
+		
+		// thresholding
+		boolean[][] binarygradient = new boolean[W][H];
+		for (int y = 0; y < H; y++)
+			for (int x = 0; x < W; x++)
+				if (channel_gradient[x][y] > THRESHOLD*maxgradient/100) {
+					binarygradient[x][y]=true;
+				} else {
+					channel_gradient[x][y]=0;
+				}
+		
+		
 		// THE FUCKING GVF!!!
 		gvf_v = new double[W][H];
 		gvf_u = new double[W][H];
-		double[][][] gvfield = gvf(f, W, H, slideThreshold.getValue(), 0.2);
+		gvf(f, W, H, slideThreshold.getValue(), 0.2);
+		
+		/*
+		// Snake ORI
+		double[][] cdist = new ChamferDistance(ChamferDistance.chamfer5).compute(binarygradient, W,H);
+		for (int y = 0; y < H; y++)
+			for (int x = 0; x < W; x++)
+				channel_flow[x][y]=(int)(5*cdist[x][y]);
+			*/	
+		
 		
 		//debug(gvf_v,-1,-1);
-		
-		
-		
 		//debug(gvf_u,-1,-1);
 		
 		for (int y = 0; y < H; y++)
 			for (int x = 0; x < W; x++)
-				chanel_flow[x][y] = map(chanel_flow[x][y], 0, 1, 0, 255);
-				
-		
+				channel_flow[x][y] = map(channel_flow[x][y], 0, 1, 0, 255);
 		
 		
 		// show flow + gradient
@@ -516,7 +530,7 @@ public class SnakeGUI {
 		
 		for (int y = 0; y < H; y++) {
 			for (int x = 0; x < W; x++) {
-				int vflow = (int) ((chanel_flow[x][y]/2)+0.5);
+				int vflow = (int) ((channel_flow[x][y]/2)+0.5);
 				int vgrad = binarygradient[x][y]?255:0;
 
 				if (vgrad > 0) {
@@ -524,17 +538,15 @@ public class SnakeGUI {
 					rgb[1] = vgrad;
 					rgb[2] = 0;
 				} else {
-					rgb[0] = Math.max(0, 255 - vflow);
+					rgb[0] = 0;//Math.max(0, 255 - vflow);
 					rgb[1] = 0;
-					rgb[2] = 0;
+					rgb[2]  = Math.max(0, 255 - vflow);
 				}
 				int irgb = (0xFF<<24)+(rgb[0]<<16)+(rgb[1]<<8)+rgb[2];
 				imgflow.setRGB(x, y, irgb);
 			}
 		}
 		
-		
-
 		// swing display
 		label0.setIcon(new ImageIcon(imgflow));
 	}
@@ -549,8 +561,8 @@ public class SnakeGUI {
 		int MAXLEN = Integer.parseInt(txtMaxlen.getText()); /* max segment length */
 
 		// initial points
-		double radius = (W/2 + H/2) / 2;
-		double perimeter = 6.28 * radius;
+		double radius = ((W)/2 + (H)/2) / 2;
+		double perimeter = 6.28 * radius*0.6;
 		int nmb = (int) (perimeter / MAXLEN);
 		Point[] circle = new Point[nmb];
 		for (int i = 0; i < circle.length; i++) {
@@ -560,7 +572,8 @@ public class SnakeGUI {
 		}
 
 		// create snake instance
-		snakeinstance = new Snake(W, H, chanel_gradient, gvf_u, gvf_v, circle);
+		snakeinstance = new Snake(W, H, channel_gradient, gvf_u, gvf_v, circle);
+		//snakeinstance = new Snake(W, H, channel_gradient, channel_flow, circle);
 
 		// snake base parameters
 		snakeinstance.alpha = Double.parseDouble(txtAlpha.getText());
@@ -570,12 +583,12 @@ public class SnakeGUI {
 
 		// snake extra parameters
 		snakeinstance.SNAKEGUI = this;
-		snakeinstance.SHOWANIMATION = cbShowAnim.isSelected();
-		snakeinstance.AUTOADAPT = cbAutoadapt.isSelected();
+		snakeinstance.SHOWANIMATION = true;//.isSelected();
+		snakeinstance.AUTOADAPT = true;//cbAutoadapt.isSelected();
 		snakeinstance.AUTOADAPT_LOOP = Integer.parseInt(txtStep.getText());
 		snakeinstance.AUTOADAPT_MINLEN = Integer.parseInt(txtMinlen.getText());
 		snakeinstance.AUTOADAPT_MAXLEN = Integer.parseInt(txtMaxlen.getText());
-		snakeinstance.MAXITERATION = Integer.parseInt(txtMaxiter.getText());
+		snakeinstance.MAXITERATION = slideMaxiter.getValue();
 
 		// animate snake
 		System.out.println("initial snake points:" + snakeinstance.snake.size());
@@ -586,7 +599,6 @@ public class SnakeGUI {
 		// display final result
 		display();
 
-		System.out.println("END");
 	}
 
 	// ---------------------------------------------------------------------
