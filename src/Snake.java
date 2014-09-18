@@ -5,6 +5,12 @@ import java.util.List;
 
 public class Snake {
 
+	public final static int SNAKE_GVF = 1;
+	public final static int SNAKE_KASS = 2;
+	
+	// snake type = default GVF
+	public int snakeType = SNAKE_GVF;
+	
 	// Points of the snake
 	public List<Point> snake;
 
@@ -66,6 +72,7 @@ public class Snake {
 		this.flow = flow;
 		this.width = width;
 		this.height = height;
+		this.snakeType = SNAKE_KASS;
 	}
 
 	public Snake(int width, int height, int[][] gradient, double[][] gflow_u, double[][] gflow_v, Point... points) {
@@ -75,6 +82,8 @@ public class Snake {
 		this.gflow_v = gflow_v;
 		this.width = width;
 		this.height = height;
+		this.snakeType = SNAKE_GVF;
+		
 	}
 	
 	/**
@@ -85,6 +94,7 @@ public class Snake {
 	public int loop() {
 		int loop=0;
 
+		System.err.println("Snake type "+ snakeType);
 		while(step() && loop<MAXITERATION) {
 			// auto adapt the number of points in the snake
 			if (AUTOADAPT && (loop%AUTOADAPT_LOOP)==0) {
@@ -96,7 +106,7 @@ public class Snake {
 			if (SHOWANIMATION && SNAKEGUI!=null) SNAKEGUI.display();
 			
 			try {
-				Thread.sleep(5);
+				Thread.sleep(20);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
@@ -154,11 +164,15 @@ public class Snake {
 						try { System.in.read(); } catch (IOException e1) { e1.printStackTrace();}
 					}*/
 					
-					//e_uniformity[1+dx][1+dy] = f_uniformity(prev,next,p);
+					// Interna
+					e_uniformity[1+dx][1+dy] = f_uniformity(prev,next,p);
 					e_curvature[(wSize/2)+dx][(wSize/2)+dy]  = f_curvature(prev,p,next);
 					
-					e_flow[(wSize/2)+dx][(wSize/2)+dy]       = f_gvflow(cur,p, dx, dy); // gvf
-					//e_flow[1+dx][1+dy]       = f_gflowOri(cur,p); // snake ori
+					// Externa
+					if(snakeType == SNAKE_GVF)
+						e_flow[(wSize/2)+dx][(wSize/2)+dy]       = f_gvflow(cur,p, dx, dy); // gvf
+					else
+						e_flow[1+dx][1+dy]       = f_gflowOri(cur,p); // snake ori
 					
 					//e_inertia[1+dx][1+dy]    = f_inertia(cur,p);
 				}
@@ -178,7 +192,9 @@ public class Snake {
 			for(int dy = (wSize/2)*-1 ;dy <= (wSize/2); dy++) {
 				for(int dx = (wSize/2)*-1;dx <= (wSize/2); dx++) {
 					e = 0;
-					//e+= alpha * e_uniformity[1+dx][1+dy]; // internal energy
+					
+					
+					e+= alpha * e_uniformity[1+dx][1+dy]; // internal energy
 					
 					e+= beta  * e_curvature[(wSize/2)+dx][(wSize/2)+dy];  // internal energy
 					e+= gamma * e_flow[(wSize/2)+dx][(wSize/2)+dy];       // external energy

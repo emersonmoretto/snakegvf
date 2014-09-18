@@ -1,3 +1,7 @@
+import ij.IJ;
+import ij.ImagePlus;
+import ij.Prefs;
+
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -40,7 +44,11 @@ import javax.swing.event.ChangeListener;
  *
  */
 public class SnakeGUI {
-
+	
+	
+	public static int SNAKE = 1;
+	
+	
 	// --- MODEL -----------------------------------------------------------
 
 	// the true snake object
@@ -49,6 +57,7 @@ public class SnakeGUI {
 	// ---- IMAGE DATA -----------------------------------------------------
 
 	private BufferedImage image = null;
+	private BufferedImage imageOri = null;
 	private BufferedImage imageanimation = null;
 	private int[][] channel_gradient = null;
 	private double[][] channel_flow = null;
@@ -62,15 +71,15 @@ public class SnakeGUI {
 	private JLabel label1 = new JLabel("Snake");
 	private JSlider slideMaxiter = new JSlider(50, 800, 400);
 
-	private JSlider slideThreshold = new JSlider(1, 200, 75);
+	private JSlider slideThreshold = new JSlider(1, 200, 100);
 	private JTextField txtAlpha = new JTextField("1.0", 3);
-	private JTextField txtBeta = new JTextField("0.2", 3);
+	private JTextField txtBeta = new JTextField("1.0", 3);
 	private JTextField txtGamma = new JTextField("1.0", 3);
 	private JTextField txtDelta = new JTextField("1.0", 3);
 
 	private JTextField txtStep = new JTextField("10", 3);
-	private JTextField txtMinlen = new JTextField("2", 3);
-	private JTextField txtMaxlen = new JTextField("3", 3);
+	private JTextField txtMinlen = new JTextField("6", 6);
+	private JTextField txtMaxlen = new JTextField("9", 9);
 
 	// --- Create the GUI ---------------------------------------------------
 
@@ -90,10 +99,16 @@ public class SnakeGUI {
 
 		JButton buttonLoad = new JButton("Load Image");
 		JButton buttonRun = new JButton("Run");
+		JButton buttonPreproc = new JButton("Pre-process");
+		
+		final JCheckBox snakeType = new JCheckBox("Snake GVF?");
+		snakeType.setSelected(true);
 
 		final JPanel buttonPanel = new JPanel();
 		buttonPanel.add(buttonLoad);
 		buttonPanel.add(buttonRun);
+		buttonPanel.add(snakeType);
+		
 		//buttonPanel.add(cbShowAnim);
 		buttonPanel.add(new JLabel("Iterations (100-800):"));
 		buttonPanel.add(slideMaxiter);
@@ -103,6 +118,7 @@ public class SnakeGUI {
 
 		final JPanel coefPanel = new JPanel();
 		
+		coefPanel.add(buttonPreproc);
 		coefPanel.add(new JLabel("alpha:"));
 		coefPanel.add(txtAlpha);
 		coefPanel.add(new JLabel("beta:"));
@@ -188,6 +204,35 @@ public class SnakeGUI {
 				new Thread(snakerunner).start();
 			}
 		});
+		
+		buttonPreproc.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				
+				ImagePlus imp = new ImagePlus("Pre process", image);
+				
+				IJ.run(imp, "Find Edges", "");
+				IJ.run(imp, "Invert", "");
+				Prefs.blackBackground = false;
+				IJ.run(imp, "Make Binary", "");
+				
+				image = imp.getBufferedImage();
+			}
+		});
+		
+		snakeType.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if(snakeType.isSelected()){
+					SNAKE = Snake.SNAKE_GVF;
+					label0.setText("Gradient Vector Flow");
+				}else{
+					SNAKE = Snake.SNAKE_KASS;
+					label0.setText("Energia Externa - Kass");
+				}
+				//recalc
+				computegflow();
+			}
+		});
 
 		/*
 		try {
@@ -221,7 +266,7 @@ public class SnakeGUI {
 		Graphics2D gc = imageanimation.createGraphics();
 		
 		// draw background image
-        gc.drawImage(image,0,0,null);
+        gc.drawImage(imageOri,0,0,null);
 
 		// draw snake lines
 		gc.setColor( Color.BLUE );
@@ -252,6 +297,7 @@ public class SnakeGUI {
 	private void loadimage(File file) throws IOException {
 		image = null;
 		image = ImageIO.read( file );
+		imageOri = ImageIO.read( file );
 		imageanimation = new BufferedImage(image.getWidth(),image.getHeight(),ColorSpace.TYPE_RGB);
 
 		// swing display
@@ -488,8 +534,6 @@ public class SnakeGUI {
 		channel_flow = new double[W][H];
 			
 		
-	
-		
 		
 		// thresholding
 		boolean[][] binarygradient = new boolean[W][H];
@@ -502,26 +546,29 @@ public class SnakeGUI {
 				}
 		
 		
-		// THE FUCKING GVF!!!
-		gvf_v = new double[W][H];
-		gvf_u = new double[W][H];
-		gvf(f, W, H, slideThreshold.getValue(), 0.2);
+		if(SNAKE == Snake.SNAKE_GVF){
 		
-		/*
-		// Snake ORI
-		double[][] cdist = new ChamferDistance(ChamferDistance.chamfer5).compute(binarygradient, W,H);
-		for (int y = 0; y < H; y++)
-			for (int x = 0; x < W; x++)
-				channel_flow[x][y]=(int)(5*cdist[x][y]);
-			*/	
+			// THE FUCKING GVF!!!
+			gvf_v = new double[W][H];
+			gvf_u = new double[W][H];
+			gvf(f, W, H, slideThreshold.getValue(), 0.2);
+			
+			// Map
+			for (int y = 0; y < H; y++)
+				for (int x = 0; x < W; x++)
+					channel_flow[x][y] = map(channel_flow[x][y], 0, 1, 0, 255);
+			
+		}else{
 		
+			// Snake ORI
+			double[][] cdist = new ChamferDistance(ChamferDistance.chamfer5).compute(binarygradient, W,H);
+			for (int y = 0; y < H; y++)
+				for (int x = 0; x < W; x++)
+					channel_flow[x][y]=(int)(5*cdist[x][y]);
+		}		
 		
 		//debug(gvf_v,-1,-1);
 		//debug(gvf_u,-1,-1);
-		
-		for (int y = 0; y < H; y++)
-			for (int x = 0; x < W; x++)
-				channel_flow[x][y] = map(channel_flow[x][y], 0, 1, 0, 255);
 		
 		
 		// show flow + gradient
@@ -572,8 +619,11 @@ public class SnakeGUI {
 		}
 
 		// create snake instance
-		snakeinstance = new Snake(W, H, channel_gradient, gvf_u, gvf_v, circle);
-		//snakeinstance = new Snake(W, H, channel_gradient, channel_flow, circle);
+		if(SNAKE == Snake.SNAKE_GVF){
+			snakeinstance = new Snake(W, H, channel_gradient, gvf_u, gvf_v, circle);
+		}else{
+			snakeinstance = new Snake(W, H, channel_gradient, channel_flow, circle);
+		}
 
 		// snake base parameters
 		snakeinstance.alpha = Double.parseDouble(txtAlpha.getText());
